@@ -33,8 +33,8 @@ code_space= give_RLIM(i,n,enhanced_or_not) # this obtains RLIM_i(n)
 
 code_space = sorted(code_space, key=bir_sayar) #POWER OPTIMIZATION CONSTRAINT:  sort based on weight
 
-# choose block length to be 16
-code_space = code_space[0:2 ** k] # get RLIM_4(42,16)
+# choose block length to be k
+code_space = code_space[0:2 ** k] # get RLIM_i(n,k)
 code_space = sorted(code_space, key=turn_array_into_number) # sort based on the binary value to enable binary search algorithm
 
 how_many_data_seqeunces=200 # total_data_to_be_transmitted = k*how_many_data_seqeunces bits
@@ -98,4 +98,4 @@ for a in range(len(data_to_be_encoded)):
 print("number of bit errors is as follows")
 print(number_of_errenous_bits)
 print("bit error rate (BER) is as follows")
-print(number_of_errenous_bits/k*how_many_data_seqeunces)
+print(number_of_errenous_bits/(k*how_many_data_seqeunces))
