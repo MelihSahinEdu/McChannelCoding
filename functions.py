@@ -1,5 +1,5 @@
 # PREPRINT is available at: https://arxiv.org/abs/2411.15955
-"""Copyright 2024 Melih Şahin
+"""Copyright 2025 Melih Şahin
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -57,7 +57,10 @@ def fast_simulation_binomial(diffusion_coef, M, r_r, r_0, interval_period, bit_s
         molecule_count_seqeunce_to_be_returned.append(our_sum)
     return fill_an_array_with_noise(molecule_count_seqeunce_to_be_returned,variance_given)
 
+
 def give_RLIM(i,n,enhanced):
+    if n < 2 * i + 1:
+        raise ValueError("This implementation expects n >= 2*i + 1.")
     n=n-2
     def seqeunce_adder(seqeunces, to_be_added):
         new=[]
@@ -95,8 +98,6 @@ def give_RLIM(i,n,enhanced):
         new_special.append(0)
 
 
-
-
     full_code_space=seqeunce_adder(Cs[-1],new_special)
     to_be_removed=[]
     for j in range(n+2):
@@ -104,8 +105,6 @@ def give_RLIM(i,n,enhanced):
 
     if not enhanced:
         full_code_space.remove(to_be_removed)
-
-
 
     return full_code_space
 
@@ -132,24 +131,20 @@ def generate_random_bit_array(n):
 
 
 
-def compute_expressions3(M, p1, p3, p5, p7, P0, P1,variance):
+def compute_expressions3(M, p1, p2, p3, p4, P0, P1, variance):
+    C = M*(p1 + p2 + p3)
+    D = M*(p1*(1-p1) + p2*(1-p2) + p3*(1-p3)) + variance
 
-    B = M * p1 * (1 - p1) + M * p3 * (1 - p3) + M * p5 * (1 - p5)+variance
-    D = M * p3 * (1 - p3) + M * p5 * (1 - p5) + M * p7 * (1 - p7)+variance
+    A = M*(p4 + p2 + p3)
+    B = M*(p4*(1-p4) + p2*(1-p2) + p3*(1-p3)) + variance
 
-    A = M*(p1 + p3 + p5)
-    C =M*( p3 + p5 + p7)
+    disc = B*D * ((C - A)**2 - 2*(B - D)*math.log((math.sqrt(D)*P0) / (math.sqrt(B)*P1)))
+    s = math.sqrt(disc)
 
-    sqrt_B = math.sqrt(B)
-    sqrt_D = math.sqrt(D)
+    tau_plus  = (D*A - B*C + s) / (D - B)
 
-    log_term = math.log((sqrt_D * P0) / (sqrt_B * P1))
+    return tau_plus
 
-    sqrt_term = math.sqrt(D * B * ( (A - C) ** 2 - 2 * (B - D) * log_term))
-
-    expr = (-D * (A) + B * (C) + sqrt_term) / (B - D)
-
-    return expr
 
 def count_zeros_with_hat(arr,order):
     sayı = 0
@@ -159,11 +154,13 @@ def count_zeros_with_hat(arr,order):
                 if a>=order:
                     doğruluk=True
                     for j in range(order):
-                        if arr[b][a-j]==1:
+                        if arr[b][a-j-1]==1:
                             doğruluk=False
                     if doğruluk:
                         sayı+=1
     return sayı
+
+
 
 def bir_sayar_2_lik(arr, say):
     sayı = 0
@@ -178,10 +175,9 @@ def estimate_the_threshold(i,k,code_space,r_r,r_0,diff,ts,molecule_count,varianc
     for j in range(4):
         channel_coefficnets.append(compute_channel_coefficient(1+(i+1)*j, r_r, r_0, diff, ts  ))
 
-
-
     P1  = bir_sayar_2_lik(code_space, 2 ** k)
     PO = count_zeros_with_hat(code_space, i)
+
     estimated_threshold = compute_expressions3(molecule_count, channel_coefficnets[0], channel_coefficnets[1], channel_coefficnets[2], channel_coefficnets[3], PO, P1,variance)
     return estimated_threshold
 
@@ -197,63 +193,57 @@ def seqeunce_assigner(sequence_of_number_of_molecules, threshold):
 
 
 def detection(molecule_count_seqeunce, proposed_interval, threshold_given, coding_order, enhanced):
-    enhanced = not enhanced
     whole_thing = []
     sequence_of_number_of_molecules = molecule_count_seqeunce.copy()
     while (True):
         seqeunce_of_molecule_counts = sequence_of_number_of_molecules[:proposed_interval]
 
-
         threhsold =threshold_given
 
         returned = seqeunce_assigner(seqeunce_of_molecule_counts, threhsold)
+        if not enhanced:
+
+            are_important_ones_zeros = True
+
+            for a in range(len(returned) - coding_order):
+                if returned[a + coding_order] != 0:
+                    are_important_ones_zeros = False
+                    break
+            if (are_important_ones_zeros):
+                maxi = -1
+                max_index = coding_order
+                for a in range(len(seqeunce_of_molecule_counts) - coding_order):
+                    if seqeunce_of_molecule_counts[a + coding_order] > maxi:
+                        max_index = a + coding_order
+                        maxi = seqeunce_of_molecule_counts[a + coding_order]
+                returned[max_index] = 1
         whole_thing += returned
         sequence_of_number_of_molecules = sequence_of_number_of_molecules[proposed_interval:]
         if (len(sequence_of_number_of_molecules) == 0):
-            break
-
-    if enhanced:
-
-        are_important_ones_zeros = True
-
-        for a in range(len(whole_thing)-coding_order):
-            if whole_thing[a + coding_order] != 0:
-                are_important_ones_zeros = False
-                break
-        if (are_important_ones_zeros):
-            maxi = -1
-            max_index = 0
-            for a in range(len(seqeunce_of_molecule_counts) - coding_order):
-                if seqeunce_of_molecule_counts[a + coding_order] > maxi:
-                    max_index = a + coding_order
-                    maxi=seqeunce_of_molecule_counts[a + coding_order]
-            whole_thing[max_index] = 1
-        return whole_thing
-    else:
-        return whole_thing
+            return whole_thing
 
 
-def RLIM_error_correction_single(array, order):
-    the_number=len(array)
 
-    for a in range(order):
-        array[a]=0
 
-    for a in range(the_number):
-        truth=True
-        for k in range((order)):
-            if truth:
-                if a<=the_number-(order+1-k):
-                    truth=False
-                    if array[a]==1:
-                        for l in range(order-k):
-                            array[a+l+1]=0
+def RLIM_error_correction_single(arr, order):
+    n = len(arr)
+    out = [0] * n
+    skip = order 
 
-    return array
+    for t in range(n):
+        if skip > 0:
+            out[t] = 0
+            skip -= 1
+        elif arr[t] == 1:
+            out[t] = 1
+            skip = order
+        else:
+            out[t] = 0
+    return out
 
 def RLIM_error_correction(full_seqeunce,n,i):
     now=[]
-    l=len(full_seqeunce)//n
+    l=round(len(full_seqeunce)/n)
     for a in range(l):
         now+=RLIM_error_correction_single(full_seqeunce[(a)*n:(a+1)*n],i)
     return now
@@ -313,3 +303,28 @@ def decode(seqeunce,code_space,n,k):
         res = fast_smart_array_search(code_space, code_space,seqeunce[n * l:n * (l + 1)])
         result+=turn_number_into_array(res, k)
     return result
+
+def find_best_threshold(detected_seqeunce, original_bit, M, n, i ,k,enhanced_or_not,code_space):
+    error_rates=[]
+    best_error=None
+    for a in range(M+1):
+        detected = detection(detected_seqeunce, n, a, i, enhanced_or_not)
+        error_corrected = RLIM_error_correction(detected, n, i)
+        decoded = decode(error_corrected, code_space, n, k)
+        number_of_errenous_bits = 0
+        for a in range(len(original_bit)):
+            if original_bit[a] != decoded[a]:
+                number_of_errenous_bits += 1
+        error_rates.append(number_of_errenous_bits)
+        if best_error==None or number_of_errenous_bits<best_error:
+            best_error=number_of_errenous_bits
+    new_best_errors=[]
+    for a in range(len(error_rates)):
+        if error_rates[a]==best_error:
+            new_best_errors.append(a)
+    new_best=int((new_best_errors[-1]+new_best_errors[0])/2)
+    for j in range(len(new_best_errors)):
+        if abs(new_best_errors[j]-new_best)<=1:
+            return new_best
+    return new_best_errors[0]
+
